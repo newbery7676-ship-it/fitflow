@@ -9,46 +9,63 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Configuration from your fitflow project 
+        // Your fitflow Project Configuration 
         const firebaseConfig = {
-            apiKey: "AIzaSyDpESLRjb", // [cite: 16]
+            apiKey: "AIzaSyDpESLRjb", 
             authDomain: "fitflow-a1f9f.firebaseapp.com",
-            projectId: "fitflow-a1f9f", // [cite: 18, 26]
-            storageBucket: "fitflow-a1f9f.appspot.com", // [cite: 18]
-            messagingSenderId: "297014251479", // [cite: 18]
-            appId: "1:297014251479" // [cite: 18]
+            projectId: "fitflow-a1f9f",
+            storageBucket: "fitflow-a1f9f.appspot.com",
+            messagingSenderId: "297014251479",
+            appId: "1:297014251479",
+            measurementId: "G-ZFDPO"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // LEAD CAPTURE & SIGNUP
-        window.handleLogin = async () => {
-            const name = document.getElementById('user-name').value;
+        let isLoginMode = false;
+
+        // TOGGLE LOGIN/SIGNUP UI
+        window.toggleAuthMode = () => {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "WELCOME BACK" : "CREATE ACCOUNT";
+            document.getElementById('name-container').style.display = isLoginMode ? 'none' : 'block';
+            document.getElementById('auth-btn').innerText = isLoginMode ? "Login" : "Join Team";
+            document.getElementById('toggle-text').innerText = isLoginMode ? "Need an account? Sign Up" : "Already a member? Login";
+        };
+
+        // AUTH LOGIC
+        window.handleAuth = async () => {
             const email = document.getElementById('user-email').value;
             const pass = document.getElementById('user-pass').value;
+            const name = document.getElementById('user-name').value;
 
-            if(!name || !email || !pass) return alert("Please fill in all fields.");
+            if(!email || !pass || (!isLoginMode && !name)) return alert("Please fill in all fields.");
+            if(pass.length < 6) return alert("Password must be at least 6 characters.");
 
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-                await setDoc(doc(db, "users", userCredential.user.uid), {
-                    fullName: name,
-                    email: email,
-                    startingStats: {},
-                    latestStats: {}
-                });
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } else {
+                    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+                    await setDoc(doc(db, "users", userCred.user.uid), {
+                        fullName: name,
+                        email: email,
+                        startingStats: {},
+                        latestStats: {}
+                    });
+                }
                 location.reload();
-            } catch (error) {
-                alert("Error: " + error.message);
+            } catch (err) {
+                alert("Error: " + err.message);
             }
         };
 
-        // LOAD CLOUD DATA
+        // DATA SYNC
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 document.getElementById('auth-overlay').classList.add('hidden');
@@ -57,16 +74,17 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     document.getElementById('display-name').innerText = "Member: " + data.fullName;
-                    renderTracker(data.startingStats, data.latestStats);
+                    renderTracker(data.startingStats || {}, data.latestStats || {});
                 }
             }
         });
 
-        // SAVE WORKOUT REPS & WEIGHTS TO CLOUD
+        window.logout = () => signOut(auth).then(() => location.reload());
+
+        // CLOUD STORAGE FOR WORKOUTS
         window.saveWorkoutSession = async () => {
             const user = auth.currentUser;
             if (!user) return;
-
             const exercises = [];
             document.querySelectorAll('.exercise-row').forEach(row => {
                 const name = row.querySelector('.ex-name').innerText;
@@ -74,22 +92,32 @@
                 const reps = row.querySelector('.rep-input').value;
                 if(weight && reps) exercises.push({ name, weight, reps });
             });
-
-            if(exercises.length === 0) return alert("Please enter weight and reps for at least one exercise.");
-
-            try {
-                await addDoc(collection(db, "users", user.uid, "workouts"), {
-                    date: new Date(),
-                    exercises: exercises
-                });
-                alert("Workout Logged Successfully!");
-                showDashboard();
-            } catch (e) {
-                alert("Error saving workout.");
-            }
+            if(exercises.length === 0) return alert("Log at least one set.");
+            await addDoc(collection(db, "users", user.uid, "workouts"), { date: new Date(), exercises });
+            alert("Workout Logged to Cloud!");
+            showDashboard();
         };
 
-        window.logout = () => signOut(auth).then(() => location.reload());
+        // CLOUD STORAGE FOR STATS
+        window.updateStats = async () => {
+            const user = auth.currentUser;
+            const docSnap = await getDoc(doc(db, "users", user.uid));
+            const data = docSnap.data();
+            let starting = data.startingStats || {};
+            let latest = data.latestStats || {};
+
+            ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
+                const val = document.getElementById(`inp-${key}`)?.value;
+                if(val) {
+                    latest[key] = parseFloat(val);
+                    if(!starting[key]) starting[key] = parseFloat(val);
+                }
+            });
+
+            await updateDoc(doc(db, "users", user.uid), { startingStats: starting, latestStats: latest });
+            renderTracker(starting, latest);
+            alert("Metrics updated!");
+        };
     </script>
 
     <style>
@@ -100,6 +128,7 @@
         #auth-overlay { backdrop-filter: blur(8px); }
         .photo-slot { aspect-ratio: 3/4; background: #f3f4f6; border: 2px dashed #d1d5db; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; border-radius: 1rem; cursor: pointer; }
         .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+        .muscle-logo { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .profile-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
     </style>
 </head>
@@ -108,12 +137,16 @@
     <div id="auth-overlay" class="fixed inset-0 z-[100] bg-blue-900/95 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl text-center border-t-8 border-blue-600">
             <h1 class="text-4xl font-black italic text-blue-900 mb-2 tracking-tighter">FITFLOW</h1>
-            <p class="text-gray-500 text-sm mb-8 italic">Join the WorkToLive Performance Team</p>
+            <h2 id="auth-title" class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-8">Create Account</h2>
             <div class="space-y-4 text-left">
-                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="Full Name">
-                <input type="email" id="user-email" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="Email Address">
-                <input type="password" id="user-pass" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="Password">
-                <button onclick="handleLogin()" class="w-full gradient-brand text-white font-black py-4 rounded-xl shadow-lg uppercase tracking-widest">Create Account</button>
+                <div id="name-container"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Full Name</label>
+                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="Coach John"></div>
+                <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Email</label>
+                <input type="email" id="user-email" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="john@example.com"></div>
+                <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Password</label>
+                <input type="password" id="user-pass" class="w-full p-4 bg-gray-100 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder="Min. 6 characters"></div>
+                <button id="auth-btn" onclick="handleAuth()" class="w-full gradient-brand text-white font-black py-4 rounded-xl shadow-lg uppercase tracking-widest mt-4">Join Team</button>
+                <p id="toggle-text" onclick="toggleAuthMode()" class="text-center text-xs text-blue-600 font-bold mt-6 cursor-pointer underline">Already a member? Login</p>
             </div>
         </div>
     </div>
@@ -124,7 +157,7 @@
                 <h1 class="text-2xl font-bold tracking-tight italic text-white">FITFLOW</h1>
                 <div class="flex items-center gap-4">
                     <span id="display-name" class="hidden md:block text-xs font-bold uppercase text-white"></span>
-                    <img src="coach.png" class="profile-avatar" alt="Coach">
+                    <img src="coach.png" class="profile-avatar shadow-sm" alt="Coach Avatar">
                     <button onclick="logout()" class="text-white opacity-70"><i class="fas fa-sign-out-alt"></i></button>
                 </div>
             </div>
@@ -132,40 +165,80 @@
 
         <main class="container mx-auto p-4 md:p-8 space-y-8">
             <div id="dashboard-section" class="space-y-8">
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h2 class="text-sm font-black text-gray-800 uppercase italic mb-4">Your Progress</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead>
-                                <tr class="text-gray-400 uppercase border-b"><th class="pb-3">Area</th><th class="pb-3">Start</th><th class="pb-3">Latest</th><th class="pb-3 text-right">Change</th></tr>
-                            </thead>
-                            <tbody id="progress-table-body"></tbody>
-                        </table>
-                    </div>
+                
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 border-l-8 border-blue-600">
+                    <img src="coach.png" class="w-20 h-20 rounded-2xl object-cover shadow-lg" alt="Coach Profile">
+                    <div><h2 class="text-sm font-black text-gray-400 uppercase tracking-widest">Performance Coach</h2><p class="text-xl font-bold italic text-blue-900 leading-tight">Transformation Dashboard</p></div>
                 </div>
 
-                <h2 class="text-sm font-black text-gray-800 uppercase italic">Training Database</h2>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <button onclick="openMuscleGroup('Chest')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-dumbbell text-blue-500 mb-2"></i><p class="text-[10px] font-black uppercase">Chest</p></button>
-                    <button onclick="openMuscleGroup('Back')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-bars-staggered text-green-500 mb-2"></i><p class="text-[10px] font-black uppercase">Back</p></button>
-                    <button onclick="openMuscleGroup('Legs')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-person-walking text-red-500 mb-2"></i><p class="text-[10px] font-black uppercase">Legs</p></button>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest">Your Progress</h2><span id="bmi-badge" class="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-1 rounded">BMI: --</span></div>
+                    <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="text-gray-400 uppercase border-b"><th class="pb-3">Area</th><th class="pb-3">Start</th><th class="pb-3">Latest</th><th class="pb-3 text-right">Change</th></tr></thead><tbody id="progress-table-body"></tbody></table></div>
                 </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <a href="https://www.myfreedetox.com/Worktolive" target="_blank" class="bg-green-600 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-green-100 text-[10px] font-black uppercase italic tracking-widest">Cleanse Focus</h3><p class="font-bold text-lg leading-tight">7-Day Detox: Get Your Free Bottle Here →</p></a>
+                    <a href="https://www.shoplivegood.com/Worktolive" target="_blank" class="bg-blue-900 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-blue-300 text-[10px] font-black uppercase italic tracking-widest">Supplement Store</h3><p class="font-bold text-lg leading-tight">Access Member Wholesale Prices →</p></a>
+                </div>
+
+                <h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest">Exercise Database</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <button onclick="openMuscleGroup('Chest')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-blue-500 transition-all text-center"><i class="fas fa-dumbbell text-blue-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Chest</p></button>
+                    <button onclick="openMuscleGroup('Back')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-green-500 transition-all text-center"><i class="fas fa-bars-staggered text-green-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Back</p></button>
+                    <button onclick="openMuscleGroup('Legs')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-red-500 transition-all text-center"><i class="fas fa-person-walking text-red-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Legs</p></button>
+                    <button onclick="openMuscleGroup('Shoulders')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-orange-500 transition-all text-center"><i class="fas fa-arrows-up-down-left-right text-orange-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Shoulders</p></button>
+                    <button onclick="openMuscleGroup('Biceps')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-purple-500 transition-all text-center"><i class="fas fa-hand-back-fist text-purple-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Biceps</p></button>
+                    <button onclick="openMuscleGroup('Triceps')" class="bg-white p-6 rounded-2xl border border-gray-100 hover:border-yellow-500 transition-all text-center"><i class="fas fa-bolt-lightning text-yellow-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Triceps</p></button>
+                </div>
+
+                <section class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 class="text-sm font-black mb-6 uppercase italic border-b pb-2 text-blue-900">Record New Data</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="measurement-inputs">
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Weight (kg)</label><input type="number" id="inp-weight" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1" id="height-container"><label class="text-[9px] font-bold text-gray-400 uppercase">Height (cm)</label><input type="number" id="inp-height" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Chest (in)</label><input type="number" id="inp-chest" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Waist (in)</label><input type="number" id="inp-waist" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Upper Arm (in)</label><input type="number" id="inp-arm" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Upper Leg (in)</label><input type="number" id="inp-uleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Lower Leg (in)</label><input type="number" id="inp-lleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                    </div>
+                    <button onclick="updateStats()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-md hover:bg-blue-700 transition-all">Save Progress</button>
+                    <div class="mt-6 text-center pt-4 border-t"><a href="https://www.myfreehealthreport.com/Worktolive" target="_blank" class="text-[11px] font-black text-blue-500 underline uppercase italic tracking-tighter">Download Your Free Health Assessment Here</a></div>
+                </section>
             </div>
 
             <div id="workout-section" class="hidden space-y-6">
-                <button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase"><i class="fas fa-chevron-left mr-1"></i> Dashboard</button>
-                <div id="exercise-container" class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 divide-y"></div>
-                <button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl uppercase text-sm tracking-widest shadow-xl">Complete & Log Workout</button>
+                <div class="flex items-center justify-between"><button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase tracking-tighter"><i class="fas fa-chevron-left mr-1"></i> Dashboard</button><h2 id="routine-title" class="text-xl font-black italic uppercase">TRAINING</h2></div>
+                <div id="video-box" class="hidden"><div class="video-container"><iframe id="youtube-player" src="" allowfullscreen></iframe></div><button onclick="closeVideo()" class="mt-2 text-[10px] text-red-500 font-black uppercase tracking-widest">Close Tutorial ×</button></div>
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"><div id="exercise-container" class="divide-y"></div><button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl mt-8 uppercase text-sm tracking-widest shadow-xl">Complete Session & Log Volume</button></div>
             </div>
         </main>
     </div>
 
     <script>
         const library = {
-            'Chest': [{name:'Bench Press', v:'vcBig73ojpE'},{name:'Incline DB Press', v:'8iPEnn-ltC8'}],
-            'Back': [{name:'Lat Pulldown', v:'CAwf7n6Luuc'},{name:'Seated Row', v:'GZbfZ033f74'}],
-            'Legs': [{name:'Barbell Squat', v:'MVMNk0HiTMg'},{name:'Leg Press', v:'IZxyjW7MPJQ'}]
+            'Chest': [{name:'Bench Press', v:'vcBig73ojpE'},{name:'Incline DB Press', v:'8iPEnn-ltC8'},{name:'Cable Fly', v:'W6vO7_S6pSg'},{name:'Pushups', v:'IODxDxX7oi4'},{name:'Decline Bench', v:'LfyQBU7S_P0'},{name:'Chest Dips', v:'yN6Q1UI_xkE'},{name:'Pec Deck', v:'O-L_V6mCclc'},{name:'DB Pullover', v:'5mP6AnpB_40'},{name:'Svend Press', v:'zH3EAnXonHk'},{name:'Landmine Press', v:'v_79_8l8u6Q'}],
+            'Back': [{name:'Deadlift', v:'op9kVnSso6Q'},{name:'Pull-Ups', v:'eGo4IYlbE5g'},{name:'Lat Pulldown', v:'CAwf7n6Luuc'},{name:'Bent Row', v:'6TSz8bi8vP8'},{name:'Seated Row', v:'GZbfZ033f74'},{name:'1-Arm DB Row', v:'dFzUjzfih7k'},{name:'Face Pulls', v:'rep-qVOkqgk'},{name:'T-Bar Row', v:'j3Igk5nyZE4'},{name:'Hyperextension', v:'5_EjubvWvWw'},{name:'SA Pulldown', v:'Ajf_S9V9j0w'}],
+            'Legs': [{name:'Barbell Squat', v:'MVMNk0HiTMg'},{name:'Leg Press', v:'IZxyjW7MPJQ'},{name:'Lunges', v:'QOVaHwm-Q6U'},{name:'Leg Extension', v:'m0OIB638vkg'},{name:'Leg Curl', v:'1Tq3QdYUuHs'},{name:'RD Deadlift', v:'JCXUYuzwZ_M'},{name:'Goblet Squat', v:'MeHiFEgkByE'},{name:'Calf Raises', v:'gwLzBJYoWlI'},{name:'Hack Squat', v:'0tn5K9pba8Y'},{name:'Bulgarian Split', v:'2C-uNgKwPLE'}],
+            'Shoulders': [{name:'Military Press', v:'2yjwxtZ_Vkg'},{name:'Lateral Raise', v:'3VcKaXpzqRo'},{name:'Front Raise', v:'hRJ6tR5-if0'},{name:'Rev Pec Deck', v:'6yMdhi2DVao'},{name:'Arnold Press', v:'6mvfH680S3k'},{name:'Upright Row', v:'um3VVzqunPU'},{name:'Shrugs', v:'cJRVVx2uP88'},{name:'Push Press', v:'iaB_JJoh6_g'},{name:'Cable Lateral', v:'PPrzBWZDOhA'},{name:'High Pulls', v:'h4n0_S4tqO8'}],
+            'Biceps': [{name:'Barbell Curl', v:'LY1V6Cw_CoE'},{name:'Hammer Curl', v:'7jqi2qWAUzQ'},{name:'Preacher Curl', v:'fIWP-FRFNU0'},{name:'Conc. Curl', v:'JvjKuAnMh98'},{name:'Incline Curl', v:'soxrZlIlGuA'},{name:'21s Curl', v:'N9Tq7GfA6Fw'},{name:'Cable Curl', v:'NFzTWp2qpiE'},{name:'Spider Curl', v:'Xp09vWbeB9o'},{name:'Zottman Curl', v:'ZrpRBgwtLIs'},{name:'Reverse Curl', v:'nS6G3v18Msc'}],
+            'Triceps': [{name:'Pushdowns', v:'2-LAMcpzODU'},{name:'Skull Crushers', v:'d_KZx7p_DjI'},{name:'C-Grip Bench', v:'nEF0buYW97M'},{name:'O-Head Ext.', v:'-Vyt2QdsR7E'},{name:'Bench Dips', v:'0326dxSoxsk'},{name:'Kickbacks', v:'6SS6K3lAwZ8'},{name:'Rope Pushdown', v:'vB5OHsJ3EME'},{name:'1-Arm Ext.', v:'7u_nN9uIat8'},{name:'Tate Press', v:'fS79X27h33A'},{name:'Diamond Pushup', v:'SshPr-B7_6Y'}]
         };
+
+        function renderTracker(start = {}, latest = {}) {
+            const body = document.getElementById('progress-table-body');
+            body.innerHTML = '';
+            ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
+                const s = start[key] || 0; const l = latest[key] || 0; const diff = (l - s).toFixed(1);
+                const color = diff < 0 ? 'text-green-500' : (diff > 0 ? 'text-red-500' : 'text-gray-400');
+                const unit = key === 'weight' ? 'kg' : (key === 'height' ? 'cm' : 'in');
+                body.innerHTML += `<tr class="border-b last:border-0"><td class="py-3 font-bold text-gray-700 uppercase text-[10px] tracking-tighter">${key}</td>
+                        <td class="py-3 text-gray-400">${s}${unit}</td><td class="py-3 font-black">${l}${unit}</td>
+                        <td class="py-3 text-right font-black ${color}">${diff > 0 ? '+':''}${diff}</td></tr>`;
+                if(key === 'height' && s > 0) document.getElementById('height-container').classList.add('hidden');
+            });
+            if(latest.weight && latest.height) document.getElementById('bmi-badge').innerText = "BMI: " + (latest.weight / ((latest.height/100)**2)).toFixed(1);
+        }
 
         function openMuscleGroup(group) {
             document.getElementById('dashboard-section').classList.add('hidden');
@@ -173,18 +246,16 @@
             const container = document.getElementById('exercise-container');
             container.innerHTML = '';
             library[group].forEach(ex => {
-                container.innerHTML += `
-                    <div class="py-5 exercise-row flex flex-col gap-3">
-                        <div class="flex justify-between items-center"><span class="ex-name font-bold text-xs uppercase">${ex.name}</span></div>
-                        <div class="flex gap-2">
-                            <input type="number" class="wt-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none" placeholder="Weight (kg)">
-                            <input type="number" class="rep-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none" placeholder="Reps">
-                        </div>
-                    </div>`;
+                container.innerHTML += `<div class="py-5 exercise-row flex flex-col gap-3">
+                    <div class="flex justify-between items-center"><span class="ex-name font-bold text-xs uppercase tracking-widest text-gray-700">${ex.name}</span>
+                    <button onclick="playVideo('${ex.v}')" class="text-blue-600 text-[10px] font-black underline italic">WATCH TUTORIAL</button></div>
+                    <div class="flex gap-2"><input type="number" class="wt-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none focus:ring-1 ring-blue-300" placeholder="Weight (kg)">
+                    <input type="number" class="rep-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none focus:ring-1 ring-blue-300" placeholder="Reps"></div></div>`;
             });
         }
+        function playVideo(id) { document.getElementById('video-box').classList.remove('hidden'); document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${id}?autoplay=1`; window.scrollTo({top: 0, behavior: 'smooth'}); }
+        function closeVideo() { document.getElementById('video-box').classList.add('hidden'); document.getElementById('youtube-player').src = ""; }
         function showDashboard() { document.getElementById('workout-section').classList.add('hidden'); document.getElementById('dashboard-section').classList.remove('hidden'); }
-        function renderTracker(start = {}, latest = {}) { /* logic same as previous version to show starting vs latest */ }
     </script>
 </body>
 </html>
