@@ -13,6 +13,7 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // Verified keys from your fitflow project configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDpESLRjh9DKUiP5pKArLndHdKCzkozUKk", 
             authDomain: "fitflow-a1f9f.firebaseapp.com",
@@ -119,16 +120,16 @@
 
     <div id="auth-overlay" class="fixed inset-0 z-[100] bg-blue-900/95 flex items-center justify-center p-4 text-center">
         <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl border-t-8 border-blue-600">
-            <h1 class="text-4xl font-black italic text-blue-900 mb-2">FITFLOW</h1>
+            <h1 class="text-4xl font-black italic text-blue-900 mb-2 tracking-tighter">FITFLOW</h1>
             <h2 id="auth-title" class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Create Account</h2>
             <div class="space-y-4 text-left">
                 <div id="name-container"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Full Name</label>
-                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="Enter name"></div>
+                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="John Doe"></div>
                 <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Email</label>
                 <input type="email" id="user-email" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="email@example.com"></div>
                 <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Password</label>
                 <input type="password" id="user-pass" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="••••••••"></div>
-                <button id="auth-btn" onclick="handleAuth()" class="w-full gradient-brand text-white font-black py-4 rounded-xl shadow-lg uppercase tracking-widest">Join Team</button>
+                <button id="auth-btn" onclick="handleAuth()" class="w-full gradient-brand text-white font-black py-4 rounded-xl shadow-lg uppercase tracking-widest mt-4 hover:scale-[1.01] transition-all">Join Team</button>
                 <p id="toggle-text" onclick="toggleAuthMode()" class="text-center text-xs text-blue-600 font-bold mt-6 cursor-pointer underline">Login instead</p>
             </div>
         </div>
@@ -137,7 +138,7 @@
     <div id="app-content" class="hidden">
         <nav class="gradient-brand text-white p-4 shadow-lg sticky top-0 z-50">
             <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-xl font-bold tracking-tight italic">COACH GARRY NEWBERY</h1>
+                <h1 class="text-2xl font-bold tracking-tight italic">FITFLOW</h1>
                 <div class="flex items-center gap-4">
                     <img src="coach.png" class="profile-avatar shadow-sm" alt="Coach">
                     <button onclick="logout()" class="text-white opacity-70"><i class="fas fa-sign-out-alt"></i></button>
@@ -149,8 +150,8 @@
             <div id="dashboard-section" class="space-y-8">
                 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 border-l-8 border-blue-600">
-                    <img src="coach.png" class="w-20 h-20 rounded-2xl object-cover shadow-lg" alt="Coach">
-                    <div><h2 class="text-sm font-black text-gray-400 uppercase tracking-widest">Coach Garry Newbery</h2><p class="text-xl font-bold italic text-blue-900">Transformation Dashboard</p></div>
+                    <img src="coach.png" class="w-20 h-20 rounded-2xl object-cover shadow-lg" alt="Coach Garry Newbery">
+                    <div><h2 class="text-sm font-black text-gray-400 uppercase tracking-widest">Performance Coach</h2><p class="text-xl font-bold italic text-blue-900 leading-tight">Coach Garry Newbery</p></div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
@@ -159,29 +160,29 @@
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h2 class="text-sm font-black text-gray-800 uppercase italic mb-4">Before & After Photos</h2>
+                    <h2 class="text-sm font-black text-gray-800 uppercase italic mb-4 text-center">Body Visuals Vault</h2>
                     <div class="grid grid-cols-2 gap-4">
-                        <div onclick="document.getElementById('before-input').click()"><p class="text-[10px] font-bold text-gray-400 uppercase text-center mb-1">Before</p><div class="photo-slot"><img id="before-img" class="hidden"><span id="before-placeholder"><i class="fas fa-camera text-gray-300"></i></span></div><input type="file" id="before-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'before')"></div>
-                        <div onclick="document.getElementById('after-input').click()"><p class="text-[10px] font-bold text-gray-400 uppercase text-center mb-1">Current</p><div class="photo-slot"><img id="after-img" class="hidden"><span id="after-placeholder"><i class="fas fa-camera text-gray-300"></i></span></div><input type="file" id="after-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'after')"></div>
+                        <div onclick="document.getElementById('before-input').click()"><p class="text-[9px] font-bold text-gray-400 uppercase text-center mb-1 tracking-widest">Before Photo</p><div class="photo-slot"><img id="before-img" class="hidden"><span id="before-placeholder"><i class="fas fa-camera text-gray-300 text-xl"></i></span></div><input type="file" id="before-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'before')"></div>
+                        <div onclick="document.getElementById('after-input').click()"><p class="text-[9px] font-bold text-gray-400 uppercase text-center mb-1 tracking-widest">Latest Photo</p><div class="photo-slot"><img id="after-img" class="hidden"><span id="after-placeholder"><i class="fas fa-camera text-gray-300 text-xl"></i></span></div><input type="file" id="after-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'after')"></div>
                     </div>
                 </div>
 
                 <div class="bg-blue-900 p-6 rounded-3xl text-white text-center shadow-xl">
-                    <h3 class="text-sm font-black uppercase mb-2">Build the Team</h3>
-                    <p class="text-xs text-blue-200 mb-4 uppercase tracking-widest">Invite others to join Coach Garry's platform</p>
-                    <button onclick="shareInvite()" class="bg-white text-blue-900 w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition">Share My Invite Link</button>
+                    <h3 class="text-sm font-black uppercase mb-1">Growth Initiative</h3>
+                    <p class="text-[10px] text-blue-200 mb-4 uppercase tracking-widest">Share Coach Garry's platform with your network</p>
+                    <button onclick="shareInvite()" class="bg-white text-blue-900 w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all">Share My Invite Link</button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <a href="https://www.myfreedetox.com/Worktolive" target="_blank" class="bg-green-600 p-6 rounded-3xl text-white block shadow-lg"><h3 class="text-green-100 text-[10px] font-black uppercase">Limited Offer</h3><p class="font-bold text-lg">7-Day Detox: Get Your Free Bottle Here →</p></a>
-                    <a href="https://www.shoplivegood.com/Worktolive" target="_blank" class="bg-blue-600 p-6 rounded-3xl text-white block shadow-lg"><h3 class="text-blue-100 text-[10px] font-black uppercase tracking-widest">Supplements</h3><p class="font-bold text-lg leading-tight">Access Member Wholesale Pricing →</p></a>
+                    <a href="https://www.myfreedetox.com/Worktolive" target="_blank" class="bg-green-600 p-6 rounded-3xl text-white block shadow-lg hover:bg-green-700 transition-all"><h3 class="text-green-100 text-[10px] font-black uppercase italic">Limited Offer</h3><p class="font-bold text-lg">7-Day Detox: Get Your Free Bottle Here →</p></a>
+                    <a href="https://www.shoplivegood.com/Worktolive" target="_blank" class="bg-blue-600 p-6 rounded-3xl text-white block shadow-lg hover:bg-blue-700 transition-all"><h3 class="text-blue-100 text-[10px] font-black uppercase italic tracking-widest">Retail Store</h3><p class="font-bold text-lg leading-tight">Order High-Performance Supplements →</p></a>
                 </div>
 
-                <h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest">Training Database</h2>
+                <h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest text-center">Muscle Training Library</h2>
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <button onclick="openMuscleGroup('Chest')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-dumbbell text-blue-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Chest</p></button>
-                    <button onclick="openMuscleGroup('Back')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-bars-staggered text-green-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Back</p></button>
-                    <button onclick="openMuscleGroup('Legs')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center"><i class="fas fa-person-walking text-red-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Legs</p></button>
+                    <button onclick="openMuscleGroup('Chest')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center hover:border-blue-500 transition-all"><i class="fas fa-dumbbell text-blue-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Chest</p></button>
+                    <button onclick="openMuscleGroup('Back')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center hover:border-green-500 transition-all"><i class="fas fa-bars-staggered text-green-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Back</p></button>
+                    <button onclick="openMuscleGroup('Legs')" class="bg-white p-6 rounded-2xl border border-gray-100 text-center hover:border-red-500 transition-all"><i class="fas fa-person-walking text-red-500 muscle-logo"></i><p class="font-black text-[10px] uppercase">Legs</p></button>
                 </div>
 
                 <section class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
@@ -195,25 +196,25 @@
                         <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Upper Leg (in)</label><input type="number" id="inp-uleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
                         <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Lower Leg (in)</label><input type="number" id="inp-lleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
                     </div>
-                    <button onclick="updateStats()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-md">Save Transformation Data</button>
+                    <button onclick="updateStats()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-md hover:bg-blue-700 transition-all">Save Transformation Data</button>
                     <div class="mt-6 text-center border-t pt-4"><a href="https://www.myfreehealthreport.com/Worktolive" target="_blank" class="text-[11px] font-black text-blue-500 underline uppercase italic tracking-tighter">Download Your Free Health Assessment Here</a></div>
                 </section>
             </div>
 
             <div id="workout-section" class="hidden space-y-6">
-                <div class="flex items-center justify-between"><button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase"><i class="fas fa-chevron-left"></i> Dashboard</button></div>
+                <div class="flex items-center justify-between"><button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase tracking-tighter"><i class="fas fa-chevron-left"></i> Dashboard</button></div>
                 <div id="video-box" class="hidden"><div class="video-container"><iframe id="youtube-player" src="" allowfullscreen></iframe></div><button onclick="closeVideo()" class="mt-2 text-[10px] text-red-500 font-black uppercase">Close Video ×</button></div>
-                <div id="exercise-container" class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 divide-y"></div>
-                <button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl uppercase text-sm tracking-widest">Complete Workout & Log History</button>
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 divide-y" id="exercise-container"></div>
+                <button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl mt-8 uppercase text-sm tracking-widest shadow-xl">Complete Session & Log Cloud History</button>
             </div>
         </main>
     </div>
 
     <script>
         const library = {
-            'Chest': [{name:'Bench Press', v:'vcBig73ojpE'},{name:'Incline DB Press', v:'8iPEnn-ltC8'},{name:'Cable Fly', v:'W6vO7_S6pSg'},{name:'Pushups', v:'IODxDxX7oi4'},{name:'Decline Bench', v:'LfyQBU7S_P0'},{name:'Chest Dips', v:'yN6Q1UI_xkE'},{name:'Pec Deck', v:'O-L_V6mCclc'},{name:'DB Pullover', v:'5mP6AnpB_40'},{name:'Svend Press', v:'zH3EAnXonHk'},{name:'Landmine Press', v:'v_79_8l8u6Q'}],
-            'Back': [{name:'Deadlift', v:'op9kVnSso6Q'},{name:'Pull-Ups', v:'eGo4IYlbE5g'},{name:'Lat Pulldown', v:'CAwf7n6Luuc'},{name:'Bent Row', v:'6TSz8bi8vP8'},{name:'Seated Row', v:'GZbfZ033f74'},{name:'1-Arm DB Row', v:'dFzUjzfih7k'},{name:'Face Pulls', v:'rep-qVOkqgk'},{name:'T-Bar Row', v:'j3Igk5nyZE4'},{name:'Hyperextension', v:'5_EjubvWvWw'},{name:'SA Pulldown', v:'Ajf_S9V9j0w'}],
-            'Legs': [{name:'Barbell Squat', v:'MVMNk0HiTMg'},{name:'Leg Press', v:'IZxyjW7MPJQ'},{name:'Lunges', v:'QOVaHwm-Q6U'},{name:'Leg Extension', v:'m0OIB638vkg'},{name:'Leg Curl', v:'1Tq3QdYUuHs'},{name:'RD Deadlift', v:'JCXUYuzwZ_M'},{name:'Goblet Squat', v:'MeHiFEgkByE'},{name:'Calf Raises', v:'gwLzBJYoWlI'},{name:'Hack Squat', v:'0tn5K9pba8Y'},{name:'Bulgarian Split', v:'2C-uNgKwPLE'}]
+            'Chest': [{name:'Bench Press', v:'vcBig73ojpE'},{name:'Incline DB Press', v:'8iPEnn-ltC8'},{name:'Cable Fly', v:'W6vO7_S6pSg'}],
+            'Back': [{name:'Lat Pulldown', v:'CAwf7n6Luuc'},{name:'Seated Row', v:'GZbfZ033f74'},{name:'Bent Row', v:'6TSz8bi8vP8'}],
+            'Legs': [{name:'Barbell Squat', v:'MVMNk0HiTMg'},{name:'Leg Press', v:'IZxyjW7MPJQ'},{name:'Lunges', v:'QOVaHwm-Q6U'}]
         };
 
         function renderTracker(start, latest) {
@@ -222,46 +223,4 @@
             ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
                 const s = start[key] || 0; const l = latest[key] || 0; const diff = (l - s).toFixed(1);
                 const color = diff < 0 ? 'text-green-500' : (diff > 0 ? 'text-red-500' : 'text-gray-400');
-                const unit = key === 'weight' ? 'kg' : (key === 'height' ? 'cm' : 'in');
-                body.innerHTML += `<tr class="border-b last:border-0"><td class="py-3 font-bold uppercase text-[10px] tracking-tight text-gray-700">${key}</td>
-                    <td class="py-3 text-gray-400">${s}${unit}</td><td class="py-3 font-black">${l}${unit}</td>
-                    <td class="py-3 text-right font-black ${color}">${diff > 0 ? '+':''}${diff}</td></tr>`;
-                if(key === 'height' && s > 0) document.getElementById('height-container').classList.add('hidden');
-            });
-            if(latest.weight && latest.height) document.getElementById('bmi-badge').innerText = "BMI: " + (latest.weight / ((latest.height/100)**2)).toFixed(1);
-        }
-
-        function loadPhotos(photos) {
-            ['before', 'after'].forEach(type => {
-                if(photos[type]) {
-                    document.getElementById(`${type}-img`).src = photos[type];
-                    document.getElementById(`${type}-img`).classList.remove('hidden');
-                    document.getElementById(`${type}-placeholder`).classList.add('hidden');
-                }
-            });
-        }
-
-        window.shareInvite = () => {
-            const text = "Transform with Coach Garry Newbery! Use our free Performance Tracker: " + window.location.href;
-            if (navigator.share) navigator.share({ title: 'Coach Garry Newbery Fitness', text: text });
-            else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
-        };
-
-        window.openMuscleGroup = (group) => {
-            document.getElementById('dashboard-section').classList.add('hidden');
-            document.getElementById('workout-section').classList.remove('hidden');
-            const container = document.getElementById('exercise-container'); container.innerHTML = '';
-            library[group].forEach(ex => {
-                container.innerHTML += `<div class="py-5 exercise-row flex flex-col gap-3">
-                    <div class="flex justify-between items-center"><span class="ex-name font-bold text-xs uppercase text-gray-700">${ex.name}</span>
-                    <button onclick="playVideo('${ex.v}')" class="text-blue-600 text-[10px] font-black underline italic">WATCH TUTORIAL</button></div>
-                    <div class="flex gap-2"><input type="number" class="wt-input w-full bg-gray-50 p-2 rounded text-xs outline-none" placeholder="Weight"><input type="number" class="rep-input w-full bg-gray-50 p-2 rounded text-xs outline-none" placeholder="Reps"></div></div>`;
-            });
-        };
-
-        window.playVideo = (id) => { document.getElementById('video-box').classList.remove('hidden'); document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${id}?autoplay=1`; window.scrollTo({top: 0, behavior: 'smooth'}); };
-        window.closeVideo = () => { document.getElementById('video-box').classList.add('hidden'); document.getElementById('youtube-player').src = ""; };
-        window.showDashboard = () => { document.getElementById('workout-section').classList.add('hidden'); document.getElementById('dashboard-section').classList.remove('hidden'); };
-    </script>
-</body>
-</html>
+                const unit = key === 'weight' ? 'kg' : (key === 'height' ? 'cm' : '
