@@ -56,15 +56,22 @@
             if (user) {
                 document.getElementById('auth-overlay').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
-                const docSnap = await getDoc(doc(db, "users", user.uid));
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    document.getElementById('display-name').innerText = "Member: " + (data.fullName || "User");
-                    renderTracker(data.startingStats || {}, data.latestStats || {});
-                    loadPhotos(data.photos || {});
-                }
+                fetchUserData(user.uid);
+            } else {
+                document.getElementById('auth-overlay').classList.remove('hidden');
+                document.getElementById('app-content').classList.add('hidden');
             }
         });
+
+        async function fetchUserData(uid) {
+            const docSnap = await getDoc(doc(db, "users", uid));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById('display-name').innerText = "Member: " + (data.fullName || "User");
+                renderTracker(data.startingStats || {}, data.latestStats || {});
+                loadPhotos(data.photos || {});
+            }
+        }
 
         window.logout = () => signOut(auth).then(() => location.reload());
 
@@ -74,23 +81,25 @@
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
             const data = docSnap.data();
+            
             let starting = data.startingStats || {};
             let latest = data.latestStats || {};
 
-            const fields = ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'];
-            fields.forEach(key => {
+            ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
                 const val = document.getElementById(`inp-${key}`)?.value;
                 if(val && val > 0) {
-                    latest[key] = parseFloat(val);
-                    if(!starting[key]) starting[key] = parseFloat(val);
+                    const numVal = parseFloat(val);
+                    latest[key] = numVal;
+                    if(!starting[key]) starting[key] = numVal;
+                    document.getElementById(`inp-${key}`).value = ""; // Clear
                 } else if (key === 'height' && starting.height) {
                     latest.height = starting.height;
                 }
             });
 
             await updateDoc(docRef, { startingStats: starting, latestStats: latest });
-            renderTracker(starting, latest);
-            alert("Metrics recorded successfully!");
+            fetchUserData(user.uid); // Refresh the UI
+            alert("Progress Synced to Cloud!");
         };
 
         window.uploadPhoto = async (input, type) => {
@@ -98,7 +107,8 @@
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const user = auth.currentUser;
-                const photoData = {}; photoData[`photos.${type}`] = reader.result;
+                const photoData = {}; 
+                photoData[`photos.${type}`] = reader.result;
                 await updateDoc(doc(db, "users", user.uid), photoData);
                 document.getElementById(`${type}-img`).src = reader.result;
                 document.getElementById(`${type}-img`).classList.remove('hidden');
@@ -106,48 +116,6 @@
             };
             if (file) reader.readAsDataURL(file);
         };
-
-        window.saveWorkoutSession = async () => {
-            const user = auth.currentUser;
-            const exercises = [];
-            document.querySelectorAll('.exercise-row').forEach(row => {
-                const name = row.querySelector('.ex-name').innerText;
-                const weight = row.querySelector('.wt-input').value;
-                const reps = row.querySelector('.rep-input').value;
-                if(weight && reps) exercises.push({ name, weight, reps });
-            });
-            if(exercises.length === 0) return alert("Log at least one set.");
-            await addDoc(collection(db, "users", user.uid, "workouts"), { date: new Date(), exercises });
-            alert("Workout volume logged to cloud!");
-            showDashboard();
-        };
-
-        function renderTracker(start, latest) {
-            const body = document.getElementById('progress-table-body'); body.innerHTML = '';
-            ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
-                const s = start[key] || 0; const l = latest[key] || 0; const diff = (l - s).toFixed(1);
-                const color = diff < 0 ? 'text-green-500' : (diff > 0 ? 'text-red-500' : 'text-gray-400');
-                const unit = key === 'weight' ? 'kg' : (key === 'height' ? 'cm' : 'in');
-                body.innerHTML += `<tr class="border-b last:border-0"><td class="py-3 font-bold uppercase text-[10px] text-gray-700">${key}</td>
-                    <td class="py-3 text-gray-400">${s}${unit}</td><td class="py-3 font-black">${l}${unit}</td>
-                    <td class="py-3 text-right font-black ${color}">${diff > 0 ? '+':''}${diff}</td></tr>`;
-                if(key === 'height' && s > 0) document.getElementById('height-container').classList.add('hidden');
-            });
-            if(latest.weight && latest.height) {
-                const hM = latest.height / 100;
-                document.getElementById('bmi-badge').innerText = "BMI: " + (latest.weight / (hM * hM)).toFixed(1);
-            }
-        }
-
-        function loadPhotos(photos) {
-            ['before', 'after'].forEach(type => {
-                if(photos[type]) {
-                    document.getElementById(`${type}-img`).src = photos[type];
-                    document.getElementById(`${type}-img`).classList.remove('hidden');
-                    document.getElementById(`${type}-placeholder`).classList.add('hidden');
-                }
-            });
-        }
     </script>
 
     <style>
@@ -166,17 +134,17 @@
 
     <div id="auth-overlay" class="fixed inset-0 z-[100] bg-blue-900/95 flex items-center justify-center p-4 text-center">
         <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl border-t-8 border-blue-600">
-            <h1 class="text-4xl font-black italic text-blue-900 mb-2 tracking-tighter uppercase">FITFLOW</h1>
+            <h1 class="text-4xl font-black italic text-blue-900 mb-2 tracking-tighter">FITFLOW</h1>
             <h2 id="auth-title" class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">Create Account</h2>
-            <div class="space-y-4 text-left">
+            <div class="space-y-4 text-left text-gray-900">
                 <div id="name-container"><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Full Name</label>
-                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="John Doe"></div>
+                <input type="text" id="user-name" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="Garry Newbery"></div>
                 <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Email</label>
-                <input type="email" id="user-email" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="email@example.com"></div>
+                <input type="email" id="user-email" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="coach@example.com"></div>
                 <div><label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Password</label>
                 <input type="password" id="user-pass" class="w-full p-4 bg-gray-100 rounded-xl outline-none" placeholder="••••••••"></div>
                 <button id="auth-btn" onclick="handleAuth()" class="w-full gradient-brand text-white font-black py-4 rounded-xl shadow-lg uppercase tracking-widest mt-4">Join Team</button>
-                <p id="toggle-text" onclick="toggleAuthMode()" class="text-center text-xs text-blue-600 font-bold mt-6 cursor-pointer underline tracking-tight">Already a member? Login</p>
+                <p id="toggle-text" onclick="toggleAuthMode()" class="text-center text-xs text-blue-600 font-bold mt-6 cursor-pointer underline">Login instead</p>
             </div>
         </div>
     </div>
@@ -186,6 +154,7 @@
             <div class="container mx-auto flex justify-between items-center text-white">
                 <h1 class="text-2xl font-bold tracking-tight italic">FITFLOW</h1>
                 <div class="flex items-center gap-4">
+                    <span id="display-name" class="hidden md:block text-xs font-bold uppercase tracking-widest"></span>
                     <img src="coach.png" class="profile-avatar shadow-sm" alt="Coach">
                     <button onclick="logout()" class="text-white opacity-70"><i class="fas fa-sign-out-alt"></i></button>
                 </div>
@@ -201,27 +170,21 @@
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-sm font-black text-gray-800 uppercase italic">Transformation Progress</h2><span id="bmi-badge" class="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-1 rounded">BMI: --</span></div>
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest">Live Progress Table</h2><span id="bmi-badge" class="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-1 rounded">BMI: --</span></div>
                     <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="text-gray-400 uppercase border-b"><th class="pb-3">Area</th><th class="pb-3">Start</th><th class="pb-3">Latest</th><th class="pb-3 text-right">Change</th></tr></thead><tbody id="progress-table-body"></tbody></table></div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h2 class="text-sm font-black text-gray-800 uppercase italic mb-4 text-center">Visual Evolution Vault</h2>
+                    <h2 class="text-sm font-black text-gray-800 uppercase italic mb-4 text-center">Body Visuals Vault</h2>
                     <div class="grid grid-cols-2 gap-4">
                         <div onclick="document.getElementById('before-input').click()"><p class="text-[10px] font-bold text-gray-400 uppercase text-center mb-1">Before</p><div class="photo-slot"><img id="before-img" class="hidden"><span id="before-placeholder"><i class="fas fa-camera text-gray-300 text-xl"></i></span></div><input type="file" id="before-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'before')"></div>
                         <div onclick="document.getElementById('after-input').click()"><p class="text-[10px] font-bold text-gray-400 uppercase text-center mb-1">Current</p><div class="photo-slot"><img id="after-img" class="hidden"><span id="after-placeholder"><i class="fas fa-camera text-gray-300 text-xl"></i></span></div><input type="file" id="after-input" class="hidden" accept="image/*" onchange="uploadPhoto(this, 'after')"></div>
                     </div>
                 </div>
 
-                <div class="bg-blue-900 p-6 rounded-3xl text-white text-center shadow-xl">
-                    <h3 class="text-sm font-black uppercase mb-1">Team Expansion</h3>
-                    <p class="text-[10px] text-blue-200 mb-4 uppercase tracking-widest">Share Coach Garry's tracker with your network</p>
-                    <button onclick="shareInvite()" class="bg-white text-blue-900 w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all">Share My Invite Link</button>
-                </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-                    <a href="https://www.myfreedetox.com/Worktolive" target="_blank" class="bg-green-600 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-green-100 text-[10px] font-black uppercase italic tracking-widest">Limited Offer</h3><p class="font-bold text-lg leading-tight uppercase">7-Day Detox: Get Your Free Bottle Here →</p></a>
-                    <a href="https://www.shoplivegood.com/Worktolive" target="_blank" class="bg-blue-900 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-blue-100 text-[10px] font-black uppercase italic tracking-widest">Supplements</h3><p class="font-bold text-lg leading-tight uppercase tracking-tight">Access Wholesale Pricing →</p></a>
+                    <a href="https://www.myfreedetox.com/Worktolive" target="_blank" class="bg-green-600 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-green-100 text-[10px] font-black uppercase italic tracking-widest text-center uppercase">Limited Offer</h3><p class="font-bold text-lg leading-tight uppercase">7-Day Detox: Get Your Free Bottle Here →</p></a>
+                    <a href="https://www.shoplivegood.com/Worktolive" target="_blank" class="bg-blue-900 p-6 rounded-3xl text-white block shadow-lg hover:scale-[1.01] transition-all"><h3 class="text-blue-300 text-[10px] font-black uppercase italic tracking-widest text-center uppercase">Supplements</h3><p class="font-bold text-lg leading-tight uppercase tracking-tight">Access Member Wholesale Prices →</p></a>
                 </div>
 
                 <h2 class="text-sm font-black text-gray-800 uppercase italic tracking-widest text-center uppercase">Targeted Training Modules</h2>
@@ -235,26 +198,32 @@
                 </div>
 
                 <section class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 class="text-sm font-black mb-6 uppercase italic border-b pb-2 text-blue-900 tracking-widest uppercase">Update Latest Figures</h3>
+                    <h3 class="text-sm font-black mb-6 uppercase italic border-b pb-2 text-blue-900 tracking-widest uppercase">Update Latest Metrics</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Weight (kg)</label><input type="number" id="inp-weight" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1" id="height-container"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Height (cm)</label><input type="number" id="inp-height" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Chest (in)</label><input type="number" id="inp-chest" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Waist (in)</label><input type="number" id="inp-waist" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Upper Arm (in)</label><input type="number" id="inp-arm" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Upper Leg (in)</label><input type="number" id="inp-uleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
-                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Lower Leg (in)</label><input type="number" id="inp-lleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Weight (kg)</label><input type="number" id="inp-weight" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1" id="height-container"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Height (cm)</label><input type="number" id="inp-height" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Chest (in)</label><input type="number" id="inp-chest" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Waist (in)</label><input type="number" id="inp-waist" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Upper Arm (in)</label><input type="number" id="inp-arm" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Upper Leg (in)</label><input type="number" id="inp-uleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Lower Leg (in)</label><input type="number" id="inp-lleg" class="bg-gray-50 w-full p-3 rounded-lg text-sm outline-none border" placeholder="0"></div>
                     </div>
-                    <button onclick="updateStats()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-md hover:bg-blue-700 transition-all">Save Progress Data</button>
+                    <button onclick="updateStats()" class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-md hover:bg-blue-700 transition-all">Save My Data to Cloud</button>
                     <div class="mt-6 text-center border-t pt-4"><a href="https://www.myfreehealthreport.com/Worktolive" target="_blank" class="text-[11px] font-black text-blue-500 underline uppercase italic tracking-tighter">Download Your Free Health Assessment Here</a></div>
                 </section>
+
+                <div class="bg-blue-900 p-6 rounded-3xl text-white text-center shadow-xl">
+                    <h3 class="text-sm font-black uppercase mb-1">Growth Initiative</h3>
+                    <p class="text-[10px] text-blue-200 mb-4 uppercase tracking-widest">Share Garry's platform with your team</p>
+                    <button onclick="shareInvite()" class="bg-white text-blue-900 w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all">Share My Invite Link</button>
+                </div>
             </div>
 
             <div id="workout-section" class="hidden space-y-6">
-                <div class="flex items-center justify-between"><button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase tracking-tighter"><i class="fas fa-chevron-left mr-1"></i> Dashboard</button><h2 id="routine-title" class="text-xl font-black italic uppercase">TRAINING</h2></div>
-                <div id="video-box" class="hidden"><div class="video-container"><iframe id="youtube-player" src="" allowfullscreen></iframe></div><button onclick="closeVideo()" class="mt-2 text-[10px] text-red-500 font-black uppercase tracking-widest">Close Tutorial ×</button></div>
+                <div class="flex items-center justify-between"><button onclick="showDashboard()" class="text-blue-600 font-bold text-sm uppercase tracking-tighter"><i class="fas fa-chevron-left mr-1"></i> Dashboard</button><h2 id="routine-title" class="text-xl font-black italic uppercase text-gray-900">TRAINING</h2></div>
+                <div id="video-box" class="hidden"><div class="video-container"><iframe id="youtube-player" src="" allowfullscreen></iframe></div><button onclick="closeVideo()" class="mt-2 text-[10px] text-red-500 font-black uppercase tracking-widest text-center">Close Tutorial ×</button></div>
                 <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 divide-y" id="exercise-container"></div>
-                <button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl mt-8 uppercase text-sm tracking-widest shadow-xl transition-all">Finish Session & Log volume</button>
+                <button onclick="saveWorkoutSession()" class="w-full bg-green-600 text-white font-black py-5 rounded-xl mt-8 uppercase text-sm tracking-widest shadow-xl transition-all">Log Complete Session</button>
             </div>
         </main>
     </div>
@@ -278,14 +247,42 @@
                 container.innerHTML += `<div class="py-5 exercise-row flex flex-col gap-3">
                     <div class="flex justify-between items-center"><span class="ex-name font-bold text-xs uppercase text-gray-700">${ex.name}</span>
                     <button onclick="playVideo('${ex.v}')" class="text-blue-600 text-[10px] font-black underline italic tracking-tighter uppercase">Watch Tutorial</button></div>
-                    <div class="flex gap-2"><input type="number" class="wt-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none" placeholder="Weight"><input type="number" class="rep-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none" placeholder="Reps"></div></div>`;
+                    <div class="flex gap-2"><input type="number" class="wt-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none border" placeholder="Weight"><input type="number" class="rep-input w-full bg-gray-50 p-3 rounded-lg text-xs outline-none border" placeholder="Reps"></div></div>`;
             });
         };
+
+        function renderTracker(start, latest) {
+            const body = document.getElementById('progress-table-body'); body.innerHTML = '';
+            ['weight', 'height', 'chest', 'waist', 'arm', 'uleg', 'lleg'].forEach(key => {
+                const s = start[key] || 0; const l = latest[key] || 0; const diff = (l - s).toFixed(1);
+                const color = diff < 0 ? 'text-green-500' : (diff > 0 ? 'text-red-500' : 'text-gray-400');
+                const unit = key === 'weight' ? 'kg' : (key === 'height' ? 'cm' : 'in');
+                body.innerHTML += `<tr class="border-b last:border-0 text-gray-800"><td class="py-3 font-bold uppercase text-[10px] tracking-tighter">${key}</td>
+                    <td class="py-3 text-gray-400">${s}${unit}</td><td class="py-3 font-black">${l}${unit}</td>
+                    <td class="py-3 text-right font-black ${color}">${diff > 0 ? '+':''}${diff}</td></tr>`;
+                if(key === 'height' && s > 0) document.getElementById('height-container').classList.add('hidden');
+            });
+            if(latest.weight && latest.height) {
+                const hM = latest.height / 100;
+                document.getElementById('bmi-badge').innerText = "BMI: " + (latest.weight / (hM * hM)).toFixed(1);
+            }
+        }
+
+        function loadPhotos(photos) {
+            ['before', 'after'].forEach(type => {
+                if(photos[type]) {
+                    document.getElementById(`${type}-img`).src = photos[type];
+                    document.getElementById(`${type}-img`).classList.remove('hidden');
+                    document.getElementById(`${type}-placeholder`).classList.add('hidden');
+                }
+            });
+        }
+
         window.playVideo = (id) => { document.getElementById('video-box').classList.remove('hidden'); document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${id}?autoplay=1`; window.scrollTo({top: 0, behavior: 'smooth'}); };
         window.closeVideo = () => { document.getElementById('video-box').classList.add('hidden'); document.getElementById('youtube-player').src = ""; };
         window.showDashboard = () => { document.getElementById('workout-section').classList.add('hidden'); document.getElementById('dashboard-section').classList.remove('hidden'); };
         window.shareInvite = () => {
-            const text = "Transform with Coach Garry Newbery on the FITFLOW team! Use Garry's free tracker: " + window.location.href;
+            const text = "Transform with the FITFLOW team! Use Coach Garry's free tracker: " + window.location.href;
             if (navigator.share) navigator.share({ title: 'FITFLOW Performance', text: text });
             else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
         };
